@@ -17,8 +17,8 @@ Inspired by Nous Research's [hermes-agent](https://github.com/nousresearch/herme
 ## Install
 
 ```bash
-git clone https://github.com/nardovibecoding/claude-session-continuity
-cd claude-session-continuity
+git clone https://github.com/nardovibecoding/claudecode-session-continuity
+cd claudecode-session-continuity
 ./install.sh
 ```
 
