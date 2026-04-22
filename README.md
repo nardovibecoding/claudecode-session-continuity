@@ -1,132 +1,103 @@
 # Claude Session Continuity
 
-**Never lose a Claude Code conversation again.**
+**Your Claude Code conversations don't have to disappear.**
 
-Three slash commands + two hooks that turn every Claude Code session into a durable, searchable memory atom — with zero API calls.
+You know the moment. You `/clear` by reflex. Or close a terminal with a pending plan inside. Or the laptop dies mid-session. Ninety minutes of context — the design you debugged, the decisions you finally reached, the state Claude had just built up — gone. Next time you open Claude, it knows nothing.
 
-- `/s` — save current conversation as a structured summary
-- `/crash` — bulk-recover any sessions that ended without `/s` today
-- **Deferred-save** — if you `/clear` or close the terminal, the session auto-saves on your next Claude Code open
+This fixes that. Three commands, two hooks, zero API calls.
 
-Inspired by Nous Research's [hermes-agent](https://github.com/nousresearch/hermes-agent) compaction handoff format. Pairs with [memory-wiki-graph-stack](https://github.com/nardovibecoding/memory-wiki-graph-stack) if you want the saved convos to auto-organize into a knowledge graph.
+```bash
+curl -fsSL https://raw.githubusercontent.com/nardovibecoding/claudecode-session-continuity/main/install.sh | bash
+```
+
+After the install: `/s` saves the current session. `/crash` recovers any session that ended without `/s`. Deferred-save auto-triggers on `/clear` or terminal close — so the accidental losses catch themselves.
 
 **Platform**: macOS + Linux. Requires Claude Code + Python 3.
 
 ---
 
-## Install
+## The three moves
 
-```bash
-git clone https://github.com/nardovibecoding/claudecode-session-continuity
-cd claudecode-session-continuity
-./install.sh
-```
+### `/s` — save on demand
 
-The installer:
-1. Copies two hooks to `~/.claude/hooks/`
-2. Copies two skills to `~/.claude/skills/`
-3. Patches `~/.claude/settings.json` (idempotent — safe to re-run)
+Type `/s` anywhere in a Claude Code session. A background Haiku agent reads the transcript and writes a structured summary to `~/.claude/projects/<project>/memory/convo_YYYY-MM-DD_<topic>.md`. Takes ~15 seconds. You keep working.
 
-That's it. No API key. No config file. No daemon.
-
----
-
-## What it does
-
-### `/s` — quick-save
-
-In any Claude Code session, type `/s`. A background Haiku agent reads the transcript and writes a structured summary to `~/.claude/projects/<project>/memory/convo_YYYY-MM-DD_<topic>.md`.
-
-Output template (adopted from hermes-agent):
+The summary isn't freeform bullets. It's a fixed template (borrowed from [hermes-agent](https://github.com/nousresearch/hermes-agent)):
 
 ```
-## Active Task
-<what's in progress at save time>
-
-## Resolved
-<what got done this session>
-
-## Pending User Asks
-<unanswered questions, numbered>
-
-## Remaining Work
-<concrete next steps>
-
-## State Deltas
-<enabled/disabled/param changes>
-
-## Pivots
-<position flips during session>
+## Active Task       — what's in progress right now
+## Resolved          — what got done this session
+## Pending User Asks — unanswered questions, numbered
+## Remaining Work    — concrete next steps
+## State Deltas      — enabled/disabled/param changes
+## Pivots            — position flips during the session
 ```
 
-Hard 3KB cap per file. Forces the agent to compress, not dump.
+Hard 3KB cap. Forces the agent to compress, not dump. A month of these is actually readable.
 
-### `/crash` — bulk recovery
+### `/crash` — recover what slipped through
 
-If Claude crashed, your laptop died, or you force-quit five terminals in a row — `/crash` scans today's JSONLs, diffs against already-saved summaries, and saves any orphans. One agent handles the batch.
+Laptop crashed. You force-quit five terminals. Power cut. Claude died mid-sentence. Type `/crash`. One agent scans today's JSONLs, diffs against what's already saved, writes summaries for the orphans. Done.
 
 ### Deferred-save — the auto-layer
 
-Two hooks give you automatic coverage for the cases you'd otherwise forget:
+The failure mode you care about most: you `/clear` by reflex and only realize a second later. Or you habitually close terminals without thinking about save.
+
+Two hooks catch these:
 
 ```
 /clear or close terminal
+    ↓   SessionEnd hook writes marker to /tmp/pending_saves/<session_id>.json
     ↓
-SessionEnd hook writes marker to /tmp/pending_saves/<session_id>.json
+Next Claude Code session — first prompt
+    ↓   UserPromptSubmit hook reads the queue, nudges Claude to save
     ↓
-Next Claude Code session, first user prompt
-    ↓
-UserPromptSubmit hook reads queue, injects a nudge
-    ↓
-Claude spawns a background save Agent → deletes marker
-    ↓
-~20 seconds later: your prior session is saved
+Background Agent reads the orphaned transcript, writes convo_*.md, deletes marker
+    ↓   ~20 seconds later: the session you thought you'd lost is saved
 ```
 
-Coverage:
-- `/clear` — ✅ covered (SessionEnd fires cleanly)
-- Graceful terminal close (`/exit`, Cmd+W confirmed) — ✅ covered
-- Hard kill (SIGKILL, OOM, power loss) — ❌ not covered — use `/crash` for these
+Works across terminals. Close a window in one project, the save fires next time you open Claude Code in any project.
 
-Works across terminals: close a window in Project A, the save fires next time you open Claude Code in Project B.
-
----
-
-## Why structured template?
-
-Most save-your-session tools produce freeform bullets that get worse every session (context dumping, no signal-to-noise discipline). The structured template forces each save to answer the same five questions — making the memory actually useful when you (or another Claude session) reads it back later. Uniform format also means an LLM can grep or embed across 100 convos without getting confused by varying shapes.
-
-Hermes-agent uses the same pattern for its in-context compaction handoff. Stealing it for session saves gets you the same benefit at the checkpoint level.
+**Coverage:**
+- `/clear` — ✅
+- Graceful close (`/exit`, Cmd+W) — ✅
+- Hard kill (SIGKILL, OOM, power loss) — ❌ use `/crash`
 
 ---
 
-## Configuration
+## Why this structure
 
-### Skip specific project directories (optional)
+Most save-session tools dump freeform bullets. The bullets rot. You stop reading them. The template here answers the same six questions every time — which means a month of saves stays scannable, and an LLM can grep across them without getting confused by shape.
 
-If you have Claude Code subprocesses running inside bots or agents (e.g. a Telegram bot that spawns Claude SDK), you don't want their SessionEnd events to pollute your save queue. Export a colon-separated skip list:
+Hermes-agent uses this exact format for compaction handoffs. Stealing it for checkpoints gets you the same benefit at a different layer.
+
+Pairs with [memory-wiki-graph-stack](https://github.com/nardovibecoding/memory-wiki-graph-stack) if you want the saved convos to auto-organize into a knowledge graph.
+
+---
+
+## Config (optional)
+
+If you run Claude Code subprocesses inside bots (e.g. a Telegram bot spawning Claude SDK), skip them so their SessionEnd events don't pollute your save queue:
 
 ```bash
 export SESSION_CONTINUITY_SKIP_CWDS='telegram-bot:admin-bot'
 ```
 
-Any `cwd` containing one of those substrings will be skipped.
+Any `cwd` containing one of those substrings is ignored.
 
-### Memory location
-
-Saves go to `~/.claude/projects/<project-slug>/memory/` where `project-slug` matches the directory Claude Code uses for transcripts. This keeps saves local to each project — no cross-project pollution.
+Saves land in `~/.claude/projects/<project-slug>/memory/`, scoped per project — no cross-project bleed.
 
 ---
 
 ## How it compares
 
-| | Manual `/save` skills | This | hermes-agent |
+| | Manual save skills | This | hermes-agent |
 |---|---|---|---|
 | Save trigger | manual only | manual + auto-deferred | auto-writes to SQLite |
-| Recovery after crash | manual grep | `/crash` | sessions always queryable |
-| Template | freeform | **structured (Active/Resolved/Pending/Remaining)** | structured |
-| API cost | 0 | 0 | 0 (or configurable provider) |
-| Graph / wiki integration | no | pair with [memory-wiki-graph-stack](https://github.com/nardovibecoding/memory-wiki-graph-stack) | no (external plugins) |
+| Recovery after crash | manual grep | `/crash` | always queryable |
+| Template | freeform | **structured** | structured |
+| API cost | 0 | 0 | 0 (configurable) |
+| Graph integration | no | [pair with memory-wiki-graph-stack](https://github.com/nardovibecoding/memory-wiki-graph-stack) | external plugins |
 
 ---
 
@@ -134,9 +105,7 @@ Saves go to `~/.claude/projects/<project-slug>/memory/` where `project-slug` mat
 
 MIT. See LICENSE.
 
----
-
 ## Credits
 
-- Structured template pattern from [hermes-agent](https://github.com/nousresearch/hermes-agent) by Nous Research
+- Structured template from [hermes-agent](https://github.com/nousresearch/hermes-agent) by Nous Research
 - Built with [Claude Code](https://claude.com/claude-code)
