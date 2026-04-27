@@ -4,8 +4,8 @@
 
 set -euo pipefail
 
-REPO_URL="https://github.com/nardovibecoding/claudecode-session-continuity"
-CACHE_DIR="$HOME/.cache/claudecode-session-continuity"
+REPO_URL="https://github.com/nardovibecoding/simply-session-continuity"
+CACHE_DIR="$HOME/.cache/simply-session-continuity"
 CLAUDE_DIR="$HOME/.claude"
 HOOKS_DIR="$CLAUDE_DIR/hooks"
 SKILLS_DIR="$CLAUDE_DIR/skills"

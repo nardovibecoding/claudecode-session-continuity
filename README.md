@@ -7,7 +7,7 @@ You know the moment. You `/clear` by reflex. Or close a terminal with a pending 
 This fixes that. Three commands, two hooks, zero API calls.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nardovibecoding/claudecode-session-continuity/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/nardovibecoding/simply-session-continuity/main/install.sh | bash
 ```
 
 After the install: `/s` saves the current session. `/crash` recovers any session that ended without `/s`. Deferred-save auto-triggers on `/clear` or terminal close — so the accidental losses catch themselves.
