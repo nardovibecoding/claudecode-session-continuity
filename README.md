@@ -20,7 +20,7 @@ After the install: `/s` saves the current session. `/crash` recovers any session
 
 ### `/s` — save on demand
 
-Type `/s` anywhere in a Claude Code session. A background Haiku agent reads the transcript and writes a structured summary to `~/.claude/projects/<project>/memory/convo_YYYY-MM-DD_<topic>.md`. Takes ~15 seconds. You keep working.
+Type `/s` anywhere in a Claude Code session. A background summarizer reads the transcript and writes a structured summary to `~/.claude/projects/<project>/memory/convo_YYYY-MM-DD_<topic>.md`. Takes ~15 seconds. You keep working.
 
 The summary isn't freeform bullets. It's a fixed template (borrowed from [hermes-agent](https://github.com/nousresearch/hermes-agent)):
 
@@ -77,15 +77,22 @@ Pairs with [memory-wiki-graph-stack](https://github.com/nardovibecoding/memory-w
 
 ## Config (optional)
 
-If you run Claude Code subprocesses inside bots (e.g. a Telegram bot spawning Claude SDK), skip them so their SessionEnd events don't pollute your save queue:
+If you run Claude Code subprocesses inside other tools, skip them so their SessionEnd events do not pollute your save queue:
 
 ```bash
-export SESSION_CONTINUITY_SKIP_CWDS='telegram-bot:admin-bot'
+export SESSION_CONTINUITY_SKIP_CWDS='example-worker:example-sandbox'
 ```
 
 Any `cwd` containing one of those substrings is ignored.
 
 Saves land in `~/.claude/projects/<project-slug>/memory/`, scoped per project — no cross-project bleed.
+
+The pending-save queue uses local marker files under
+`/tmp/pending_saves/<session_id>.json`. Those files contain local recovery
+state, not publishable project data.
+
+No telemetry, hosted service, or network relay is involved. Transcript reads and
+summary writes happen on your machine through Claude Code's local session files.
 
 ---
 
